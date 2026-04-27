@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../widgets/subject_card.dart';
 import 'math_page.dart';
 import 'spanish_page.dart';
+import 'grade_selection_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -38,7 +39,10 @@ class HomePage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const MathPage(),
+                      builder: (_) => const GradeSelectionPage(
+                        subject: "Matemáticas",
+                        color: Colors.red,
+                      ),
                     ),
                   );
                 },
@@ -55,7 +59,10 @@ class HomePage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const SpanishPage(),
+                      builder: (_) => const GradeSelectionPage(
+                        subject: "Español",
+                        color: Colors.blue,
+                      ),
                     ),
                   );
                 },
