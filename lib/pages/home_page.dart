@@ -3,6 +3,7 @@ import '../widgets/subject_card.dart';
 import 'math_page.dart';
 import 'spanish_page.dart';
 import 'grade_selection_page.dart';
+import 'package:edi/pages/profile_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -10,11 +11,32 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
+  backgroundColor: const Color(0xFFF3F4F6),
+  appBar: AppBar(
+    backgroundColor: Colors.white,
+    elevation: 0,
+    title: const Text(
+      "EDI",
+      style: TextStyle(color: Colors.black),
+    ),
+    actions: [
+      IconButton(
+        icon: const Icon(Icons.person, color: Colors.black),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ProfilePage(),
+            ),
+          );
+        },
+      ),
+    ],
+  ),
+  body: SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
             children: [
               const SizedBox(height: 20),
 

@@ -34,7 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (res.user != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Inicio de sesión exitoso')),
+          const SnackBar(content: Text('Iniciaste sesión correctamente')),
         );
 
         // 👉 Ir al Home
@@ -84,7 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 10),
 
                 const Text(
-                  'Aprende Matemáticas y Español',
+                  '¡Aprender y jugar, para todos por igual!',
                   style: TextStyle(fontSize: 18),
                 ),
 

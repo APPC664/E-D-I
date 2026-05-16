@@ -103,7 +103,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 // 📘 GRADO
                 DropdownButtonFormField<String>(
                   value: selectedGrade,
-                  items: ['1°', '2°', '3°', '4°', '5°', '6°']
+                  items: ['1° y 2°', '3° y 4°', '5° y 6°']
                       .map((grade) => DropdownMenuItem(
                             value: grade,
                             child: Text(grade),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'lesson_map_page.dart';
 
 class GradeSelectionPage extends StatefulWidget {
@@ -20,30 +21,26 @@ class _GradeSelectionPageState extends State<GradeSelectionPage> {
 
   int selectedIndex = 0;
 
-  final List<String> grades = ['1°', '2°', '3°', '4°', '5°', '6°'];
+  final List<String> grades = ['1° y 2°', '3° y 4°', '5° y 6°'];
 
   @override
   void initState() {
     super.initState();
-    loadUserGrade();
+
+    loadLocalGrade();   // 🟡 LOCAL (rápido)
+    loadUserGrade();    // 🔵 REMOTO (actualiza)
   }
 
-  // 📥 CARGAR grado guardado
-  Future<void> loadUserGrade() async {
+  // 🟡 CARGAR DESDE HIVE
+  Future<void> loadLocalGrade() async {
     final user = Supabase.instance.client.auth.currentUser;
+    final box = Hive.box('user_data');
 
     if (user != null) {
-      final response = await Supabase.instance.client
-          .from('users')
-          .select('grade')
-          .eq('id', user.id)
-          .single();
+      final localGrade = box.get('${user.id}_${widget.subject}');
 
-      final savedGrade = response['grade'];
-
-      if (savedGrade != null) {
-        final index = grades.indexOf(savedGrade);
-
+      if (localGrade != null) {
+        final index = grades.indexOf(localGrade);
         if (index != -1) {
           setState(() {
             selectedIndex = index;
@@ -53,15 +50,70 @@ class _GradeSelectionPageState extends State<GradeSelectionPage> {
     }
   }
 
-  // 💾 GUARDAR grado
-  Future<void> saveGrade(int index) async {
+  // 🔵 CARGAR DESDE SUPABASE
+  Future<void> loadUserGrade() async {
     final user = Supabase.instance.client.auth.currentUser;
 
     if (user != null) {
-      await Supabase.instance.client
-          .from('users')
-          .update({'grade': grades[index]})
-          .eq('id', user.id);
+      final response = await Supabase.instance.client
+          .from('user_subjects')
+          .select('grade')
+          .eq('user_id', user.id)
+          .eq('subject', widget.subject)
+          .maybeSingle();
+
+      final savedGrade = response?['grade'];
+
+      if (savedGrade != null) {
+        final index = grades.indexOf(savedGrade);
+        if (index != -1) {
+          setState(() {
+            selectedIndex = index;
+          });
+        }
+      }
+    }
+  }
+
+  // 💾 GUARDAR (OFFLINE-FIRST)
+  Future<void> saveGrade(int index) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    final box = Hive.box('user_data');
+
+    if (user != null) {
+      final grade = grades[index];
+
+      // 🟡 1. Guardar SIEMPRE local
+      await box.put('${user.id}_${widget.subject}', grade);
+
+      try {
+        // 🔵 2. Intentar guardar en Supabase
+        await Supabase.instance.client
+            .from('user_subjects')
+            .upsert({
+              'user_id': user.id,
+              'subject': widget.subject,
+              'grade': grade,
+            });
+
+      } catch (e) {
+        // 📴 3. Si falla → queda en local
+        print("Guardado offline: $e");
+      }
+    }
+  }
+
+  // 🎯 Texto corto
+  String getShortLabel(int index) {
+    switch (index) {
+      case 0:
+        return "1-2";
+      case 1:
+        return "3-4";
+      case 2:
+        return "5-6";
+      default:
+        return "";
     }
   }
 
@@ -69,142 +121,107 @@ class _GradeSelectionPageState extends State<GradeSelectionPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
+      appBar: AppBar(
+        title: Text(widget.subject),
+        backgroundColor: widget.color,
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
 
-            const SizedBox(height: 40),
-
-            // 🎓 TÍTULO
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.school, color: widget.color),
-                const SizedBox(width: 10),
-                const Text(
-                  "Selecciona tu Grado",
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-
             const SizedBox(height: 10),
 
-            Text(
-              "Elige el grado de ${widget.subject}",
-              style: const TextStyle(color: Colors.black54),
+            const Text(
+              "Selecciona tu nivel",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
             ),
 
-            const SizedBox(height: 30),
+            const SizedBox(height: 20),
 
-            // 📦 GRID
             Expanded(
-              child: GridView.builder(
+              child: ListView.builder(
+                physics: const BouncingScrollPhysics(),
                 itemCount: grades.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 20,
-                  crossAxisSpacing: 20,
-                ),
                 itemBuilder: (context, index) {
                   final isSelected = index == selectedIndex;
 
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        selectedIndex = index;
-                      });
+                  return Column(
+                    children: [
 
-                      saveGrade(index); // guardar sin bloquear
+                      GestureDetector(
+                        onTap: () async {
+                          setState(() {
+                            selectedIndex = index;
+                          });
 
-                      // 🚀 NAVEGAR A LECCIONES
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => LessonMapPage(
-                            subject: widget.subject,
-                            grade: grades[index],
-                            color: widget.color,
-                          ),
-                        ),
-                      );
-                    },
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
+                          await saveGrade(index);
 
-                        // TARJETA
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border: isSelected
-                                ? Border.all(color: Colors.black, width: 2)
-                                : null,
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Colors.black12,
-                                blurRadius: 10,
-                                offset: Offset(0, 5),
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => LessonMapPage(
+                                subject: widget.subject,
+                                grade: grades[index],
+                                color: widget.color,
                               ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
+                            ),
+                          );
+                        },
+                        child: Column(
+                          children: [
 
-                              Icon(Icons.school,
-                                  size: 30, color: widget.color),
-
-                              const SizedBox(height: 10),
-
-                              Text(
-                                "${grades[index]} Primaria",
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-
-                              const SizedBox(height: 10),
-
-                              Text(
-                                grades[index].replaceAll('°', ''),
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // 🔵 ETIQUETA
-                        if (isSelected)
-                          Positioned(
-                            top: -10,
-                            left: 15,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 5),
+                            Container(
+                              width: 80,
+                              height: 80,
                               decoration: BoxDecoration(
                                 color: widget.color,
-                                borderRadius: BorderRadius.circular(20),
+                                shape: BoxShape.circle,
+                                border: isSelected
+                                    ? Border.all(color: Colors.black, width: 3)
+                                    : Border.all(color: Colors.transparent),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Colors.black12,
+                                    blurRadius: 8,
+                                    offset: Offset(0, 4),
+                                  ),
+                                ],
                               ),
-                              child: const Text(
-                                "Tu grado",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
+                              child: Center(
+                                child: Text(
+                                  getShortLabel(index),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
+
+                            const SizedBox(height: 5),
+
+                            Text(
+                              "${grades[index]} Primaria",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      if (index != grades.length - 1)
+                        Container(
+                          width: 3,
+                          height: 50,
+                          color: Colors.grey,
+                        ),
+                    ],
                   );
                 },
               ),

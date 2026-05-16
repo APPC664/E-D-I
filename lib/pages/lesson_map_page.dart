@@ -14,6 +14,12 @@ class LessonMapPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final levels = [
+      {"title": "Nivel 1", "subtitle": "Básico"},
+      {"title": "Nivel 2", "subtitle": "Intermedio"},
+      {"title": "Nivel 3", "subtitle": "Avanzado"},
+    ];
+
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
@@ -23,61 +29,66 @@ class LessonMapPage extends StatelessWidget {
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: ListView.builder(
-          itemCount: 10, // 👈 simulamos 10 lecciones
+          itemCount: levels.length,
           itemBuilder: (context, index) {
-            return Column(
-              children: [
+            final level = levels[index];
 
-                // CÍRCULO (lección)
-                Container(
-                  margin: const EdgeInsets.symmetric(vertical: 15),
-                  child: Column(
-                    children: [
+            return Container(
+              margin: const EdgeInsets.only(bottom: 20),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 8,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
 
-                      Container(
-                        width: 70,
-                        height: 70,
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 8,
-                              offset: Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Text(
-                            "${index + 1}",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.star,
+                        size: 30,
+                        color: Colors.black,
+                      ),
+                    ),
+
+                    const SizedBox(width: 20),
+
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          level["title"]!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ),
-
-                      const SizedBox(height: 5),
-
-                      Text(
-                        "Lección ${index + 1}",
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
+                        Text(
+                          level["subtitle"]!,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-
-                // Línea de conexión (excepto la última)
-                if (index != 9)
-                  Container(
-                    width: 2,
-                    height: 30,
-                    color: Colors.grey,
-                  ),
-              ],
+              ),
             );
           },
         ),
