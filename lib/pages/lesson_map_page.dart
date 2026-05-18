@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../models/level_model.dart';
+import '../widgets/level_card.dart';
+import 'lessons/math/grade_1_2/level1_counting_page.dart';
+import 'lessons/math/grade_1_2/level2_addition_page.dart';
+import 'lessons/math/grade_1_2/level3_multiplication_intro_page.dart';
+
 class LessonMapPage extends StatelessWidget {
   final String subject;
   final String grade;
@@ -14,11 +20,62 @@ class LessonMapPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final levels = [
-      {"title": "Nivel 1", "subtitle": "Básico"},
-      {"title": "Nivel 2", "subtitle": "Intermedio"},
-      {"title": "Nivel 3", "subtitle": "Avanzado"},
+    final normalizedSubject = subject.toLowerCase();
+    final isMathSubject = normalizedSubject.contains("matem");
+    final isFirstSecondGrade = grade.contains("1") && grade.contains("2");
+    final hasAvailableLevels = isMathSubject && isFirstSecondGrade;
+
+    final activeLevels = [
+      const LevelModel(
+        title: "Nivel 1",
+        subtitle: "Principiante",
+        description: "Contar numeros explotando globos en orden",
+      ),
+      const LevelModel(
+        title: "Nivel 2",
+        subtitle: "Intermedio",
+        description: "Suma y resta con problemas de manzanas",
+      ),
+      const LevelModel(
+        title: "Nivel 3",
+        subtitle: "Avanzado",
+        description: "Introduccion a la multiplicacion visual",
+      ),
     ];
+
+    final pendingLevels = [
+      const LevelModel(
+        title: "Nivel 1",
+        subtitle: "Pendiente",
+        description: "Falta definir la idea para este grado",
+        locked: true,
+      ),
+      const LevelModel(
+        title: "Nivel 2",
+        subtitle: "Pendiente",
+        description: "Falta definir la idea para este grado",
+        locked: true,
+      ),
+      const LevelModel(
+        title: "Nivel 3",
+        subtitle: "Pendiente",
+        description: "Falta definir la idea para este grado",
+        locked: true,
+      ),
+    ];
+
+    final levels = hasAvailableLevels ? activeLevels : pendingLevels;
+
+    Widget buildMathGradeOneTwoLevel(int index) {
+      switch (index) {
+        case 0:
+          return Level1CountingPage(grade: grade, color: color);
+        case 1:
+          return Level2AdditionPage(grade: grade, color: color);
+        default:
+          return Level3MultiplicationIntroPage(grade: grade, color: color);
+      }
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
@@ -35,59 +92,38 @@ class LessonMapPage extends StatelessWidget {
 
             return Container(
               margin: const EdgeInsets.only(bottom: 20),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 8,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.star,
-                        size: 30,
-                        color: Colors.black,
-                      ),
-                    ),
-
-                    const SizedBox(width: 20),
-
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          level["title"]!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
+              child: LevelCard(
+                title: level.title,
+                subtitle: level.subtitle,
+                description: level.description,
+                icon: level.locked
+                    ? Icons.lock_outline
+                    : index == 0
+                        ? Icons.filter_1
+                        : index == 1
+                            ? Icons.add_circle_outline
+                            : Icons.close,
+                color: color,
+                locked: level.locked,
+                onTap: () {
+                  if (!hasAvailableLevels) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "Estos niveles todavia estan pendientes.",
                         ),
-                        Text(
-                          level["subtitle"]!,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ],
+                      ),
+                    );
+                    return;
+                  }
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => buildMathGradeOneTwoLevel(index),
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
             );
           },

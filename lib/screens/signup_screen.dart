@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -39,6 +40,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       final user = authResponse.user;
 
       if (user != null) {
+        final box = Hive.box('user_data');
         // 🗄️ Guardar datos adicionales en tabla users
         await Supabase.instance.client.from('users').insert({
           'id': user.id,
@@ -46,6 +48,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           'email': email,
           'grade': grade,
         });
+        await box.put('${user.id}_name', name);
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Cuenta creada correctamente')),

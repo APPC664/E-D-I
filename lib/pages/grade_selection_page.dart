@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'lesson_map_page.dart';
 
 class GradeSelectionPage extends StatefulWidget {
@@ -18,8 +18,8 @@ class GradeSelectionPage extends StatefulWidget {
 }
 
 class _GradeSelectionPageState extends State<GradeSelectionPage> {
-
   int selectedIndex = 0;
+  bool isOpeningLessonMap = false;
 
   final List<String> grades = ['1° y 2°', '3° y 4°', '5° y 6°'];
 
@@ -31,7 +31,37 @@ class _GradeSelectionPageState extends State<GradeSelectionPage> {
     loadUserGrade();    // 🔵 REMOTO (actualiza)
   }
 
-  // 🟡 CARGAR DESDE HIVE
+  // 🟡 ACTUALIZAR RESUMEN LOCAL
+  Future<void> saveLocalGradeSummary({
+    required String userId,
+    required String grade,
+  }) async {
+    final box = Hive.box('user_data');
+    final savedGrades = Map<String, String>.from(
+      box.get('${userId}_grades') ?? {},
+    );
+
+    savedGrades[widget.subject] = grade;
+    await box.put('${userId}_grades', savedGrades);
+  }
+
+  Future<void> saveGradeToSupabase({
+    required String userId,
+    required String grade,
+  }) async {
+    await Supabase.instance.client
+        .from('user_subjects')
+        .delete()
+        .eq('user_id', userId)
+        .eq('subject', widget.subject);
+
+    await Supabase.instance.client.from('user_subjects').insert({
+      'user_id': userId,
+      'subject': widget.subject,
+      'grade': grade,
+    });
+  }
+
   Future<void> loadLocalGrade() async {
     final user = Supabase.instance.client.auth.currentUser;
     final box = Hive.box('user_data');
@@ -42,6 +72,7 @@ class _GradeSelectionPageState extends State<GradeSelectionPage> {
       if (localGrade != null) {
         final index = grades.indexOf(localGrade);
         if (index != -1) {
+          if (!mounted) return;
           setState(() {
             selectedIndex = index;
           });
@@ -53,24 +84,42 @@ class _GradeSelectionPageState extends State<GradeSelectionPage> {
   // 🔵 CARGAR DESDE SUPABASE
   Future<void> loadUserGrade() async {
     final user = Supabase.instance.client.auth.currentUser;
+    final box = Hive.box('user_data');
 
     if (user != null) {
-      final response = await Supabase.instance.client
-          .from('user_subjects')
-          .select('grade')
-          .eq('user_id', user.id)
-          .eq('subject', widget.subject)
-          .maybeSingle();
+      try {
+        final localGrade = box.get('${user.id}_${widget.subject}');
+        final hasPendingGrade =
+            box.get('pending_${user.id}_${widget.subject}') == true;
 
-      final savedGrade = response?['grade'];
-
-      if (savedGrade != null) {
-        final index = grades.indexOf(savedGrade);
-        if (index != -1) {
-          setState(() {
-            selectedIndex = index;
-          });
+        if (hasPendingGrade && localGrade != null) {
+          await saveGradeToSupabase(userId: user.id, grade: localGrade);
+          await box.put('pending_${user.id}_${widget.subject}', false);
         }
+
+        final response = await Supabase.instance.client
+            .from('user_subjects')
+            .select('grade')
+            .eq('user_id', user.id)
+            .eq('subject', widget.subject);
+
+        final savedGrade = response.isNotEmpty ? response.last['grade'] : null;
+
+        if (savedGrade != null) {
+          await box.put('${user.id}_${widget.subject}', savedGrade);
+          await saveLocalGradeSummary(userId: user.id, grade: savedGrade);
+          await box.put('pending_${user.id}_${widget.subject}', false);
+
+          final index = grades.indexOf(savedGrade);
+          if (index != -1) {
+            if (!mounted) return;
+            setState(() {
+              selectedIndex = index;
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint("Sin conexion, usando grado local: $e");
       }
     }
   }
@@ -85,20 +134,16 @@ class _GradeSelectionPageState extends State<GradeSelectionPage> {
 
       // 🟡 1. Guardar SIEMPRE local
       await box.put('${user.id}_${widget.subject}', grade);
+      await saveLocalGradeSummary(userId: user.id, grade: grade);
+      await box.put('pending_${user.id}_${widget.subject}', true);
 
       try {
         // 🔵 2. Intentar guardar en Supabase
-        await Supabase.instance.client
-            .from('user_subjects')
-            .upsert({
-              'user_id': user.id,
-              'subject': widget.subject,
-              'grade': grade,
-            });
-
+        await saveGradeToSupabase(userId: user.id, grade: grade);
+        await box.put('pending_${user.id}_${widget.subject}', false);
       } catch (e) {
         // 📴 3. Si falla → queda en local
-        print("Guardado offline: $e");
+        debugPrint("Guardado offline: $e");
       }
     }
   }
@@ -114,6 +159,37 @@ class _GradeSelectionPageState extends State<GradeSelectionPage> {
         return "5-6";
       default:
         return "";
+    }
+  }
+
+  Future<void> openLessonMap(int index) async {
+    if (isOpeningLessonMap) return;
+
+    setState(() {
+      selectedIndex = index;
+      isOpeningLessonMap = true;
+    });
+
+    try {
+      await saveGrade(index);
+
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LessonMapPage(
+            subject: widget.subject,
+            grade: grades[index],
+            color: widget.color,
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isOpeningLessonMap = false;
+        });
+      }
     }
   }
 
@@ -153,24 +229,7 @@ class _GradeSelectionPageState extends State<GradeSelectionPage> {
                     children: [
 
                       GestureDetector(
-                        onTap: () async {
-                          setState(() {
-                            selectedIndex = index;
-                          });
-
-                          await saveGrade(index);
-
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => LessonMapPage(
-                                subject: widget.subject,
-                                grade: grades[index],
-                                color: widget.color,
-                              ),
-                            ),
-                          );
-                        },
+                        onTap: () => openLessonMap(index),
                         child: Column(
                           children: [
 

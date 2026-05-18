@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../screens/login_screen.dart';
 
@@ -10,7 +11,6 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-
   String name = "";
   Map<String, String> grades = {}; // materia → grado
 
@@ -20,31 +20,108 @@ class _ProfilePageState extends State<ProfilePage> {
     loadProfile();
   }
 
-  Future<void> loadProfile() async {
-    final user = Supabase.instance.client.auth.currentUser;
+  Map<String, String> loadLocalGradeSummary(Box box, String userId) {
+    final localGrades = Map<String, String>.from(
+      box.get('${userId}_grades') ?? {},
+    );
+    final userPrefix = '${userId}_';
 
-    if (user != null) {
-      final userData = await Supabase.instance.client
-          .from('users')
-          .select('name')
-          .eq('id', user.id)
-          .maybeSingle();
-
-      final subjects = await Supabase.instance.client
-          .from('user_subjects')
-          .select()
-          .eq('user_id', user.id);
-
-      Map<String, String> tempGrades = {};
-
-      for (var item in subjects) {
-        tempGrades[item['subject']] = item['grade'];
+    for (final key in box.keys) {
+      if (key is! String || !key.startsWith(userPrefix)) {
+        continue;
       }
 
-      setState(() {
-        name = userData?['name'] ?? 'Sin nombre';
-        grades = tempGrades;
-      });
+      if (key == '${userId}_name' || key == '${userId}_grades') {
+        continue;
+      }
+
+      final value = box.get(key);
+      if (value is String) {
+        final subject = key.substring(userPrefix.length);
+        localGrades[subject] = value;
+      }
+    }
+
+    return localGrades;
+  }
+
+  Map<String, String> applyPendingLocalGrades(
+    Box box,
+    String userId,
+    Map<String, String> remoteGrades,
+  ) {
+    final mergedGrades = Map<String, String>.from(remoteGrades);
+    final userPrefix = '${userId}_';
+
+    for (final key in box.keys) {
+      if (key is! String || !key.startsWith(userPrefix)) {
+        continue;
+      }
+
+      if (key == '${userId}_name' || key == '${userId}_grades') {
+        continue;
+      }
+
+      final subject = key.substring(userPrefix.length);
+      final isPending = box.get('pending_${userId}_$subject') == true;
+      final value = box.get(key);
+
+      if (isPending && value is String) {
+        mergedGrades[subject] = value;
+      }
+    }
+
+    return mergedGrades;
+  }
+
+  Future<void> loadProfile() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    final box = Hive.box('user_data');
+
+    if (user != null) {
+      final localName = box.get('${user.id}_name');
+      final localGrades = loadLocalGradeSummary(box, user.id);
+
+      if (localName != null || localGrades.isNotEmpty) {
+        setState(() {
+          name = localName ?? 'Sin nombre';
+          grades = localGrades;
+        });
+      }
+
+      try {
+        final userData = await Supabase.instance.client
+            .from('users')
+            .select('name')
+            .eq('id', user.id)
+            .maybeSingle();
+
+        final subjects = await Supabase.instance.client
+            .from('user_subjects')
+            .select()
+            .eq('user_id', user.id);
+
+        Map<String, String> tempGrades = {};
+
+        for (var item in subjects) {
+          tempGrades[item['subject']] = item['grade'];
+        }
+
+        final remoteName = userData?['name'] ?? 'Sin nombre';
+        tempGrades.addAll(localGrades);
+        tempGrades = applyPendingLocalGrades(box, user.id, tempGrades);
+
+        await box.put('${user.id}_name', remoteName);
+        await box.put('${user.id}_grades', tempGrades);
+
+        if (!mounted) return;
+        setState(() {
+          name = remoteName;
+          grades = tempGrades;
+        });
+      } catch (e) {
+        debugPrint("Perfil cargado desde datos locales: $e");
+      }
     }
   }
 
