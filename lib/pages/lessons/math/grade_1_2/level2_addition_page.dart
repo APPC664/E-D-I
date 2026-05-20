@@ -20,9 +20,22 @@ class Level2AdditionPage extends StatefulWidget {
 class _Level2AdditionPageState extends State<Level2AdditionPage> {
   String message = "";
   bool completed = false;
+  bool showingIntro = true;
+  late final ({String name, int start, int added, List<int> options}) problem;
+
+  @override
+  void initState() {
+    super.initState();
+    final variants = [
+      (name: "Christian", start: 2, added: 1, options: [2, 3, 4]),
+      (name: "Sofia", start: 3, added: 2, options: [4, 5, 6]),
+      (name: "Luis", start: 1, added: 4, options: [3, 5, 6]),
+    ];
+    problem = variants[DateTime.now().millisecondsSinceEpoch % variants.length];
+  }
 
   Future<void> checkAnswer(int answer) async {
-    if (answer == 3) {
+    if (answer == problem.start + problem.added) {
       await ProgressService.completeLevel(
         subject: "math",
         grade: widget.grade,
@@ -88,6 +101,125 @@ class _Level2AdditionPageState extends State<Level2AdditionPage> {
     );
   }
 
+  Widget buildArrowButton({
+    required VoidCallback onPressed,
+    required String label,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: const Icon(Icons.arrow_forward),
+        label: Text(label),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: widget.color,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+      ),
+    );
+  }
+
+  Widget buildIntroCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.lightbulb, color: widget.color, size: 42),
+          const SizedBox(height: 12),
+          const Text(
+            "Sumar significa juntar cantidades. Si tienes algunas manzanas y agregas mas, cuenta todas las manzanas juntas.",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 17),
+          ),
+          const SizedBox(height: 20),
+          buildArrowButton(
+            onPressed: () {
+              setState(() {
+                showingIntro = false;
+              });
+            },
+            label: "Avanzar al ejercicio",
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildExerciseCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Text(
+            "${problem.name} tiene ${problem.start} manzanas y le dan ${problem.added} mas.",
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Cuantas manzanas tiene ${problem.name}?",
+            style: const TextStyle(fontSize: 16),
+          ),
+          const SizedBox(height: 22),
+          buildAppleRow(problem.start),
+          const SizedBox(height: 12),
+          const Icon(Icons.add, size: 34),
+          const SizedBox(height: 12),
+          buildAppleRow(problem.added),
+          const SizedBox(height: 22),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 12,
+            children: problem.options
+                .map(
+                  (answer) => LessonButton(
+                    text: "$answer",
+                    onPressed: () => checkAnswer(answer),
+                    color: widget.color,
+                  ),
+                )
+                .toList(),
+          ),
+          if (completed) ...[
+            const SizedBox(height: 20),
+            buildArrowButton(
+              onPressed: () => Navigator.pop(context, true),
+              label: "Avanzar",
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -128,58 +260,7 @@ class _Level2AdditionPageState extends State<Level2AdditionPage> {
                 ),
               ),
               const SizedBox(height: 24),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 8,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      "Christian tiene 2 manzanas y Angel le da 1 mas.",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      "Cuantas manzanas tiene Christian?",
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 22),
-                    buildAppleRow(2),
-                    const SizedBox(height: 12),
-                    const Icon(Icons.add, size: 34),
-                    const SizedBox(height: 12),
-                    buildAppleRow(1),
-                    const SizedBox(height: 22),
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 12,
-                      children: [2, 3, 4]
-                          .map(
-                            (answer) => LessonButton(
-                              text: "$answer",
-                              onPressed: () => checkAnswer(answer),
-                              color: widget.color,
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ],
-                ),
-              ),
+              showingIntro ? buildIntroCard() : buildExerciseCard(),
               buildMessage(),
             ],
           ),

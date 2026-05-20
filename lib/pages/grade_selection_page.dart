@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'lesson_map_page.dart';
 
 class GradeSelectionPage extends StatefulWidget {
@@ -26,12 +27,10 @@ class _GradeSelectionPageState extends State<GradeSelectionPage> {
   @override
   void initState() {
     super.initState();
-
-    loadLocalGrade();   // 🟡 LOCAL (rápido)
-    loadUserGrade();    // 🔵 REMOTO (actualiza)
+    loadLocalGrade();
+    loadUserGrade();
   }
 
-  // 🟡 ACTUALIZAR RESUMEN LOCAL
   Future<void> saveLocalGradeSummary({
     required String userId,
     required String grade,
@@ -66,89 +65,79 @@ class _GradeSelectionPageState extends State<GradeSelectionPage> {
     final user = Supabase.instance.client.auth.currentUser;
     final box = Hive.box('user_data');
 
-    if (user != null) {
-      final localGrade = box.get('${user.id}_${widget.subject}');
+    if (user == null) return;
 
-      if (localGrade != null) {
-        final index = grades.indexOf(localGrade);
-        if (index != -1) {
-          if (!mounted) return;
-          setState(() {
-            selectedIndex = index;
-          });
-        }
-      }
-    }
+    final localGrade = box.get('${user.id}_${widget.subject}');
+    if (localGrade == null) return;
+
+    final index = grades.indexOf(localGrade);
+    if (index == -1 || !mounted) return;
+
+    setState(() {
+      selectedIndex = index;
+    });
   }
 
-  // 🔵 CARGAR DESDE SUPABASE
   Future<void> loadUserGrade() async {
     final user = Supabase.instance.client.auth.currentUser;
     final box = Hive.box('user_data');
 
-    if (user != null) {
-      try {
-        final localGrade = box.get('${user.id}_${widget.subject}');
-        final hasPendingGrade =
-            box.get('pending_${user.id}_${widget.subject}') == true;
+    if (user == null) return;
 
-        if (hasPendingGrade && localGrade != null) {
-          await saveGradeToSupabase(userId: user.id, grade: localGrade);
-          await box.put('pending_${user.id}_${widget.subject}', false);
-        }
+    try {
+      final localGrade = box.get('${user.id}_${widget.subject}');
+      final hasPendingGrade =
+          box.get('pending_${user.id}_${widget.subject}') == true;
 
-        final response = await Supabase.instance.client
-            .from('user_subjects')
-            .select('grade')
-            .eq('user_id', user.id)
-            .eq('subject', widget.subject);
-
-        final savedGrade = response.isNotEmpty ? response.last['grade'] : null;
-
-        if (savedGrade != null) {
-          await box.put('${user.id}_${widget.subject}', savedGrade);
-          await saveLocalGradeSummary(userId: user.id, grade: savedGrade);
-          await box.put('pending_${user.id}_${widget.subject}', false);
-
-          final index = grades.indexOf(savedGrade);
-          if (index != -1) {
-            if (!mounted) return;
-            setState(() {
-              selectedIndex = index;
-            });
-          }
-        }
-      } catch (e) {
-        debugPrint("Sin conexion, usando grado local: $e");
+      if (hasPendingGrade && localGrade != null) {
+        await saveGradeToSupabase(userId: user.id, grade: localGrade);
+        await box.put('pending_${user.id}_${widget.subject}', false);
       }
+
+      final response = await Supabase.instance.client
+          .from('user_subjects')
+          .select('grade')
+          .eq('user_id', user.id)
+          .eq('subject', widget.subject);
+
+      final savedGrade = response.isNotEmpty ? response.last['grade'] : null;
+
+      if (savedGrade == null) return;
+
+      await box.put('${user.id}_${widget.subject}', savedGrade);
+      await saveLocalGradeSummary(userId: user.id, grade: savedGrade);
+      await box.put('pending_${user.id}_${widget.subject}', false);
+
+      final index = grades.indexOf(savedGrade);
+      if (index == -1 || !mounted) return;
+
+      setState(() {
+        selectedIndex = index;
+      });
+    } catch (e) {
+      debugPrint("Sin conexion, usando grado local: $e");
     }
   }
 
-  // 💾 GUARDAR (OFFLINE-FIRST)
   Future<void> saveGrade(int index) async {
     final user = Supabase.instance.client.auth.currentUser;
     final box = Hive.box('user_data');
 
-    if (user != null) {
-      final grade = grades[index];
+    if (user == null) return;
 
-      // 🟡 1. Guardar SIEMPRE local
-      await box.put('${user.id}_${widget.subject}', grade);
-      await saveLocalGradeSummary(userId: user.id, grade: grade);
-      await box.put('pending_${user.id}_${widget.subject}', true);
+    final grade = grades[index];
+    await box.put('${user.id}_${widget.subject}', grade);
+    await saveLocalGradeSummary(userId: user.id, grade: grade);
+    await box.put('pending_${user.id}_${widget.subject}', true);
 
-      try {
-        // 🔵 2. Intentar guardar en Supabase
-        await saveGradeToSupabase(userId: user.id, grade: grade);
-        await box.put('pending_${user.id}_${widget.subject}', false);
-      } catch (e) {
-        // 📴 3. Si falla → queda en local
-        debugPrint("Guardado offline: $e");
-      }
+    try {
+      await saveGradeToSupabase(userId: user.id, grade: grade);
+      await box.put('pending_${user.id}_${widget.subject}', false);
+    } catch (e) {
+      debugPrint("Guardado offline: $e");
     }
   }
 
-  // 🎯 Texto corto
   String getShortLabel(int index) {
     switch (index) {
       case 0:
@@ -198,94 +187,96 @@ class _GradeSelectionPageState extends State<GradeSelectionPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
-        title: Text(widget.subject),
-        backgroundColor: widget.color,
+        title: Text(widget.subject.toUpperCase()),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-
-            const SizedBox(height: 10),
-
-            const Text(
-              "Selecciona tu nivel",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 10),
+              Text(
+                widget.subject.toUpperCase(),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
+              const SizedBox(height: 16),
+              const Text(
+                "Selecciona tu grado",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 28),
+              Expanded(
+                child: ListView.builder(
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: grades.length,
+                  itemBuilder: (context, index) {
+                    final isSelected = index == selectedIndex;
 
-            const SizedBox(height: 20),
-
-            Expanded(
-              child: ListView.builder(
-                physics: const BouncingScrollPhysics(),
-                itemCount: grades.length,
-                itemBuilder: (context, index) {
-                  final isSelected = index == selectedIndex;
-
-                  return Column(
-                    children: [
-
-                      GestureDetector(
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 18),
+                      child: GestureDetector(
                         onTap: () => openLessonMap(index),
-                        child: Column(
-                          children: [
-
-                            Container(
-                              width: 80,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                color: widget.color,
-                                shape: BoxShape.circle,
-                                border: isSelected
-                                    ? Border.all(color: Colors.black, width: 3)
-                                    : Border.all(color: Colors.transparent),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Colors.black12,
-                                    blurRadius: 8,
-                                    offset: Offset(0, 4),
-                                  ),
-                                ],
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isSelected ? widget.color : Colors.white,
+                              width: 2,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 8,
+                                offset: Offset(0, 4),
                               ),
-                              child: Center(
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 34,
+                                backgroundColor: widget.color,
                                 child: Text(
                                   getShortLabel(index),
                                   style: const TextStyle(
                                     color: Colors.white,
-                                    fontSize: 24,
+                                    fontSize: 22,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
-                            ),
-
-                            const SizedBox(height: 5),
-
-                            Text(
-                              "${grades[index]} Primaria",
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
+                              const SizedBox(width: 18),
+                              Expanded(
+                                child: Text(
+                                  "${grades[index]} de primaria",
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ],
+                              const Icon(Icons.arrow_forward_ios, size: 18),
+                            ],
+                          ),
                         ),
                       ),
-
-                      if (index != grades.length - 1)
-                        Container(
-                          width: 3,
-                          height: 50,
-                          color: Colors.grey,
-                        ),
-                    ],
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

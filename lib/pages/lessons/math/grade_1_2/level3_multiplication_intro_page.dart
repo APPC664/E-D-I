@@ -22,9 +22,22 @@ class _Level3MultiplicationIntroPageState
     extends State<Level3MultiplicationIntroPage> {
   String message = "";
   bool completed = false;
+  bool showingIntro = true;
+  late final ({int groups, int each, List<int> options}) problem;
+
+  @override
+  void initState() {
+    super.initState();
+    final variants = [
+      (groups: 2, each: 3, options: [5, 6, 8]),
+      (groups: 3, each: 2, options: [4, 6, 9]),
+      (groups: 2, each: 4, options: [6, 8, 10]),
+    ];
+    problem = variants[DateTime.now().millisecondsSinceEpoch % variants.length];
+  }
 
   Future<void> checkAnswer(int answer) async {
-    if (answer == 6) {
+    if (answer == problem.groups * problem.each) {
       await ProgressService.completeLevel(
         subject: "math",
         grade: widget.grade,
@@ -93,6 +106,131 @@ class _Level3MultiplicationIntroPageState
     );
   }
 
+  Widget buildArrowButton({
+    required VoidCallback onPressed,
+    required String label,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: const Icon(Icons.arrow_forward),
+        label: Text(label),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: widget.color,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+      ),
+    );
+  }
+
+  Widget buildIntroCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.lightbulb, color: widget.color, size: 42),
+          const SizedBox(height: 12),
+          const Text(
+            "Multiplicar es contar grupos iguales. Observa cuantos grupos hay y cuantos objetos tiene cada grupo.",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 17),
+          ),
+          const SizedBox(height: 20),
+          buildArrowButton(
+            onPressed: () {
+              setState(() {
+                showingIntro = false;
+              });
+            },
+            label: "Avanzar al ejercicio",
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildExerciseCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Text(
+            "Hay ${problem.groups} grupos con ${problem.each} objetos cada uno.",
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text("Cuantos objetos hay en total?"),
+          const SizedBox(height: 22),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 16,
+            runSpacing: 16,
+            children: List.generate(problem.groups, (_) => buildGroup(problem.each)),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            "${problem.groups} x ${problem.each} = ?",
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 12,
+            children: problem.options
+                .map(
+                  (answer) => LessonButton(
+                    text: "$answer",
+                    onPressed: () => checkAnswer(answer),
+                    color: widget.color,
+                  ),
+                )
+                .toList(),
+          ),
+          if (completed) ...[
+            const SizedBox(height: 20),
+            buildArrowButton(
+              onPressed: () => Navigator.pop(context, true),
+              label: "Avanzar",
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -133,67 +271,7 @@ class _Level3MultiplicationIntroPageState
                 ),
               ),
               const SizedBox(height: 24),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 8,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      "Hay 2 grupos con 3 objetos cada uno.",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text("Cuantos objetos hay en total?"),
-                    const SizedBox(height: 22),
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 16,
-                      runSpacing: 16,
-                      children: [
-                        buildGroup(3),
-                        buildGroup(3),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    const Text(
-                      "2 x 3 = ?",
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 12,
-                      children: [5, 6, 8]
-                          .map(
-                            (answer) => LessonButton(
-                              text: "$answer",
-                              onPressed: () => checkAnswer(answer),
-                              color: widget.color,
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ],
-                ),
-              ),
+              showingIntro ? buildIntroCard() : buildExerciseCard(),
               buildMessage(),
             ],
           ),

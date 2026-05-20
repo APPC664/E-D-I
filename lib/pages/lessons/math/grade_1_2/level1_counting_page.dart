@@ -17,11 +17,24 @@ class Level1CountingPage extends StatefulWidget {
 }
 
 class _Level1CountingPageState extends State<Level1CountingPage> {
-  final List<int> balloonNumbers = [4, 2, 5, 3, 10, 8, 1, 7, 6, 9];
+  late final List<int> balloonNumbers;
   final Set<int> poppedBalloons = {};
   int nextBalloon = 1;
   String message = "";
   bool completed = false;
+  bool showingIntro = true;
+
+  @override
+  void initState() {
+    super.initState();
+    final variants = [
+      [4, 2, 5, 3, 10, 8, 1, 7, 6, 9],
+      [7, 1, 9, 2, 5, 10, 3, 8, 4, 6],
+      [2, 6, 1, 8, 4, 3, 9, 5, 10, 7],
+    ];
+    balloonNumbers =
+        variants[DateTime.now().millisecondsSinceEpoch % variants.length];
+  }
 
   Future<void> completeLevel() async {
     await ProgressService.completeLevel(
@@ -130,6 +143,103 @@ class _Level1CountingPageState extends State<Level1CountingPage> {
     );
   }
 
+  Widget buildArrowButton({
+    required VoidCallback onPressed,
+    required String label,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: const Icon(Icons.arrow_forward),
+        label: Text(label),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: widget.color,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+      ),
+    );
+  }
+
+  Widget buildIntroCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.lightbulb, color: widget.color, size: 42),
+          const SizedBox(height: 12),
+          const Text(
+            "Contar en orden ayuda a saber que numero sigue. Empieza en 1 y busca el siguiente numero hasta llegar al 10.",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 17),
+          ),
+          const SizedBox(height: 20),
+          buildArrowButton(
+            onPressed: () {
+              setState(() {
+                showingIntro = false;
+              });
+            },
+            label: "Avanzar al ejercicio",
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildExerciseCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          const Text(
+            "Toca los globos en orden, empezando por el 1.",
+            style: TextStyle(fontSize: 16),
+          ),
+          const SizedBox(height: 20),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 14,
+            runSpacing: 18,
+            children: balloonNumbers.map(buildBalloon).toList(),
+          ),
+          if (completed) ...[
+            const SizedBox(height: 20),
+            buildArrowButton(
+              onPressed: () => Navigator.pop(context, true),
+              label: "Avanzar",
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -170,36 +280,7 @@ class _Level1CountingPageState extends State<Level1CountingPage> {
                 ),
               ),
               const SizedBox(height: 24),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 8,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      "Toca los globos en orden, empezando por el 1.",
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 20),
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 14,
-                      runSpacing: 18,
-                      children: balloonNumbers.map(buildBalloon).toList(),
-                    ),
-                  ],
-                ),
-              ),
+              showingIntro ? buildIntroCard() : buildExerciseCard(),
               buildMessage(),
             ],
           ),

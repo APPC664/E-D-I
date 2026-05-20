@@ -7,6 +7,7 @@ class LevelCard extends StatelessWidget {
   final IconData icon;
   final Color color;
   final bool locked;
+  final bool completed;
   final VoidCallback onTap;
 
   const LevelCard({
@@ -17,6 +18,7 @@ class LevelCard extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.locked,
+    this.completed = false,
     required this.onTap,
   });
 
@@ -29,8 +31,9 @@ class LevelCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(20),
+          color: locked ? Colors.grey.shade500 : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: locked ? Colors.grey : color, width: 2),
           boxShadow: const [
             BoxShadow(
               color: Colors.black12,
@@ -44,14 +47,14 @@ class LevelCard extends StatelessWidget {
             Container(
               width: 60,
               height: 60,
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: cardColor,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 icon,
                 size: 30,
-                color: cardColor,
+                color: Colors.white,
               ),
             ),
             const SizedBox(width: 20),
@@ -61,31 +64,37 @@ class LevelCard extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: locked ? Colors.white : Colors.black,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      color: Colors.white70,
+                    style: TextStyle(
+                      color: locked ? Colors.white70 : color,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 5),
                   Text(
                     description,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(
+                      color: locked ? Colors.white : Colors.black54,
+                    ),
                   ),
                 ],
               ),
             ),
             Icon(
-              locked ? Icons.lock_outline : Icons.arrow_forward_ios,
-              color: Colors.white,
-              size: 18,
+              locked
+                  ? Icons.lock_outline
+                  : completed
+                      ? Icons.check_circle
+                      : Icons.arrow_forward_ios,
+              color: locked ? Colors.white : color,
+              size: completed ? 24 : 18,
             ),
           ],
         ),
